@@ -1,0 +1,46 @@
+<?jelly escape-by-default='true'?>
+<j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:d="jelly:define" xmlns:l="/lib/layout" xmlns:t="/lib/hudson" xmlns:f="/lib/form">
+  <!--
+    This Jelly script is used to produce the global configuration option.
+    Jenkins uses a set of tag libraries to provide uniformity in forms.
+    To determine where this tag is defined, first check the namespace URI,
+    and then look under $JENKINS/views/. For example, <f:section> is defined
+    in $JENKINS/views/lib/form/section.jelly.
+    It's also often useful to just check other similar scripts to see what
+    tags they use. Views are always organized according to its owner class,
+    so it should be straightforward to find them.
+  -->
+  <f:section title="Google Chat Notification Configuration">
+        <f:entry title="Google Chat Notification URL" field="url">
+            <f:textbox />
+        </f:entry>
+
+        <f:entry title="Message" field="message">
+            <f:textbox />
+        </f:entry>
+
+        <f:entry title="Notify Aborted" field="notifyAborted">
+            <f:checkbox/>
+        </f:entry>
+
+        <f:entry title="Notify Failure" field="notifyFailure">
+            <f:checkbox/>
+        </f:entry>
+
+        <f:entry title="Notify Not Built" field="notifyNotBuilt">
+            <f:checkbox/>
+        </f:entry>
+
+        <f:entry title="Notify Success" field="notifySuccess">
+            <f:checkbox/>
+        </f:entry>
+
+        <f:entry title="Notify Unstable" field="notifyUnstable">
+            <f:checkbox/>
+        </f:entry>
+
+        <f:entry title="Notify Back To Normal" field="notifyBackToNormal">
+            <f:checkbox/>
+        </f:entry>
+  </f:section>
+</j:jelly>

@@ -1,0 +1,44 @@
+<?jelly escape-by-default='true'?>
+<j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:d="jelly:define" xmlns:l="/lib/layout" xmlns:t="/lib/hudson" xmlns:f="/lib/form">
+  <!--
+    This jelly script is used for per-project configuration.
+    See global.jelly for a general discussion about jelly script.
+  -->
+
+  <!--
+    Creates a text field that shows the value of the "name" property.
+    When submitted, it will be passed to the corresponding constructor parameter.
+  -->
+    <f:entry title="Google Chat Notification URL" field="url">
+        <f:textbox />
+    </f:entry>
+
+    <f:entry title="Message" field="message">
+        <f:textbox />
+    </f:entry>
+
+    <f:entry title="Notify Aborted" field="notifyAborted">
+        <f:checkbox/>
+    </f:entry>
+
+    <f:entry title="Notify Failure" field="notifyFailure">
+        <f:checkbox/>
+    </f:entry>
+
+    <f:entry title="Notify Not Built" field="notifyNotBuilt">
+        <f:checkbox/>
+    </f:entry>
+
+    <f:entry title="Notify Success" field="notifySuccess">
+        <f:checkbox/>
+    </f:entry>
+
+    <f:entry title="Notify Unstable" field="notifyUnstable">
+        <f:checkbox/>
+    </f:entry>
+
+    <f:entry title="Notify Back To Normal" field="notifyBackToNormal">
+        <f:checkbox/>
+    </f:entry>
+
+</j:jelly>
