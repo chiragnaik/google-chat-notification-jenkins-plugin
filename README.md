@@ -8,3 +8,4 @@ This Jenkins plugin allows you to send Google Chat notification as a post build 
 
 ## How to configure it in post build action
 - Click on Add post-build action button
+(docs/add-post-build-action.png)
