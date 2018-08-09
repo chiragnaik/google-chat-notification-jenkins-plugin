@@ -1,23 +1,28 @@
 package io.cnaik;
 
 import hudson.Extension;
+import hudson.FilePath;
 import hudson.Launcher;
-import hudson.model.AbstractBuild;
-import hudson.model.AbstractProject;
-import hudson.model.BuildListener;
+import hudson.model.*;
 import hudson.tasks.BuildStepDescriptor;
 import hudson.tasks.BuildStepMonitor;
 import hudson.tasks.Publisher;
 import hudson.tasks.Recorder;
 import hudson.util.FormValidation;
-import jenkins.model.JenkinsLocationConfiguration;
+import io.cnaik.service.CommonUtil;
+import jenkins.tasks.SimpleBuildStep;
 import net.sf.json.JSONObject;
+import org.jenkinsci.Symbol;
 import org.kohsuke.stapler.DataBoundConstructor;
+import org.kohsuke.stapler.DataBoundSetter;
 import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.StaplerRequest;
-import io.cnaik.service.CommonUtil;
 
-public class GoogleChatNotification extends Recorder implements IGoogleChatNotification {
+import javax.annotation.Nonnull;
+
+public class GoogleChatNotification extends Recorder implements SimpleBuildStep {
+
+    private static final long serialVersionUID = 1L;
 
     private String url;
     private String message;
@@ -30,32 +35,23 @@ public class GoogleChatNotification extends Recorder implements IGoogleChatNotif
 
     @DataBoundConstructor
     public GoogleChatNotification(String url,
-                                  String message,
-                                  boolean notifyAborted, boolean notifyFailure,
-                                  boolean notifyNotBuilt, boolean notifySuccess,
-                                  boolean notifyUnstable, boolean notifyBackToNormal) {
+                                  String message) {
 
         this.url = url;
         this.message = message;
-        this.notifyAborted = notifyAborted;
-        this.notifyFailure = notifyFailure;
-        this.notifyNotBuilt = notifyNotBuilt;
-        this.notifySuccess = notifySuccess;
-        this.notifyUnstable = notifyUnstable;
-        this.notifyBackToNormal = notifyBackToNormal;
     }
 
     @Override
     public boolean perform(AbstractBuild build, Launcher launcher, BuildListener listener) {
-
-        JenkinsLocationConfiguration globalConfig = new JenkinsLocationConfiguration();
-        CommonUtil commonUtil = new CommonUtil(this);
-
-        if(commonUtil.checkWhetherToSend(build)) {
-            // Publish to Google Chat Notification
-            commonUtil.sendNotification(commonUtil.formResultJSON(build, globalConfig));
-        }
+        CommonUtil commonUtil = new CommonUtil(this, listener, null);
+        performAction(build, commonUtil.checkWhetherToSend(build), commonUtil);
         return true;
+    }
+
+    @Override
+    public void perform(@Nonnull Run<?, ?> run, @Nonnull FilePath workspace, @Nonnull Launcher launcher, @Nonnull TaskListener listener) {
+        CommonUtil commonUtil = new CommonUtil(this, listener, workspace);
+        performAction(run, commonUtil.checkPipelineFlag(run), commonUtil);
     }
 
     // Overridden for better type safety.
@@ -66,6 +62,7 @@ public class GoogleChatNotification extends Recorder implements IGoogleChatNotif
         return (Descriptor)super.getDescriptor();
     }
 
+    @Symbol("googlechatnotification")
     @Extension
     public static class Descriptor extends BuildStepDescriptor<Publisher> {
 
@@ -161,10 +158,9 @@ public class GoogleChatNotification extends Recorder implements IGoogleChatNotif
 
     @Override
     public BuildStepMonitor getRequiredMonitorService() {
-        return BuildStepMonitor.NONE;
+        return BuildStepMonitor.BUILD;
     }
 
-    @Override
     public String getUrl() {
         if(url == null
                 || url.equals("")) {
@@ -174,7 +170,6 @@ public class GoogleChatNotification extends Recorder implements IGoogleChatNotif
         }
     }
 
-    @Override
     public String getMessage() {
         if(message == null
                 || message.equals("")) {
@@ -184,33 +179,64 @@ public class GoogleChatNotification extends Recorder implements IGoogleChatNotif
         }
     }
 
-    @Override
     public boolean isNotifyAborted() {
         return notifyAborted;
     }
 
-    @Override
     public boolean isNotifyFailure() {
         return notifyFailure;
     }
 
-    @Override
     public boolean isNotifyNotBuilt() {
         return notifyNotBuilt;
     }
 
-    @Override
     public boolean isNotifySuccess() {
         return notifySuccess;
     }
 
-    @Override
     public boolean isNotifyUnstable() {
         return notifyUnstable;
     }
 
-    @Override
     public boolean isNotifyBackToNormal() {
         return notifyBackToNormal;
+    }
+
+    @DataBoundSetter
+    public void setNotifyAborted(boolean notifyAborted) {
+        this.notifyAborted = notifyAborted;
+    }
+
+    @DataBoundSetter
+    public void setNotifyFailure(boolean notifyFailure) {
+        this.notifyFailure = notifyFailure;
+    }
+
+    @DataBoundSetter
+    public void setNotifyNotBuilt(boolean notifyNotBuilt) {
+        this.notifyNotBuilt = notifyNotBuilt;
+    }
+
+    @DataBoundSetter
+    public void setNotifySuccess(boolean notifySuccess) {
+        this.notifySuccess = notifySuccess;
+    }
+
+    @DataBoundSetter
+    public void setNotifyUnstable(boolean notifyUnstable) {
+        this.notifyUnstable = notifyUnstable;
+    }
+
+    @DataBoundSetter
+    public void setNotifyBackToNormal(boolean notifyBackToNormal) {
+        this.notifyBackToNormal = notifyBackToNormal;
+    }
+
+    private void performAction(Run run, boolean whetherToPerform, CommonUtil commonUtil) {
+        if(whetherToPerform) {
+            // Publish to Google Chat Notification
+            commonUtil.sendNotification(commonUtil.formResultJSON(run));
+        }
     }
 }

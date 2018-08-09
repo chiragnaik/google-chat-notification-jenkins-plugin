@@ -1,14 +1,15 @@
 package io.cnaik.service;
 
-import io.cnaik.IGoogleChatNotification;
+import hudson.FilePath;
 import hudson.model.Result;
 import hudson.model.Run;
 import hudson.model.TaskListener;
+import io.cnaik.GoogleChatNotification;
 import io.restassured.http.ContentType;
 import io.restassured.response.Response;
-import jenkins.model.JenkinsLocationConfiguration;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.http.HttpStatus;
+import org.jenkinsci.plugins.tokenmacro.TokenMacro;
 
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -18,13 +19,18 @@ import static io.restassured.RestAssured.with;
 
 public class CommonUtil {
 
-    private IGoogleChatNotification googleChatNotification;
+    private GoogleChatNotification googleChatNotification;
     private TaskListener taskListener;
+    private FilePath ws;
 
     private final static Logger LOGGER = Logger.getLogger(CommonUtil.class.getName());
 
-    public CommonUtil(IGoogleChatNotification googleChatNotification) {
+    public CommonUtil(GoogleChatNotification googleChatNotification,
+                      TaskListener taskListener,
+                      FilePath ws) {
         this.googleChatNotification = googleChatNotification;
+        this.taskListener = taskListener;
+        this.ws = ws;
     }
 
     public Boolean sendNotification(String json) {
@@ -49,84 +55,35 @@ public class CommonUtil {
         return response.statusCode() == HttpStatus.SC_OK ? true : false;
     }
 
-    public String formResultJSON(Run build, JenkinsLocationConfiguration globalConfig) {
+    public String formResultJSON(Run build) {
 
-        String defaultMessage = escapeSpecialCharacter(replaceJenkinsKeywords(googleChatNotification.getMessage(), build, globalConfig));
+        String defaultMessage = escapeSpecialCharacter(replaceJenkinsKeywords(googleChatNotification.getMessage(), build));
         return "{ 'text': '" + defaultMessage + "'}";
     }
 
-    public String replaceJenkinsKeywords(String inputString, Run build, JenkinsLocationConfiguration globalConfig) {
+    public String replaceJenkinsKeywords(String inputString, Run build) {
 
         if(StringUtils.isEmpty(inputString)) {
             return inputString;
         }
 
-        String outputString = inputString;
+        try {
 
-        if(outputString.contains("$DEFAULT_SUBJECT")) {
-            outputString = outputString.replace("$DEFAULT_SUBJECT", getDefaultSubject(build));
+            if(taskListener != null) {
+                taskListener.getLogger().println("ws: " + ws + " , build: " + build);
+            }
+
+            return TokenMacro.expandAll(build, ws, taskListener, inputString, false, null);
+        } catch (Exception e) {
+            if(taskListener != null) {
+                taskListener.getLogger().println("Exception in Token Macro expansion: " + e);
+            }
         }
-
-        if(outputString.contains("$BUILD_URL")) {
-            outputString = outputString.replace("$BUILD_URL", getBuildURL(build, globalConfig));
-        }
-
-        if(outputString.contains("$CONSOLE_URL")) {
-            outputString = outputString.replace("$CONSOLE_URL", getConsoleURL(build, globalConfig));
-        }
-
-        if(outputString.contains("$CONSOLE_FULL_URL")) {
-            outputString = outputString.replace("$CONSOLE_FULL_URL", getConsoleFullURL(build, globalConfig));
-        }
-
-        return outputString;
+        return inputString;
     }
 
-    public String getDefaultSubject(Run build) {
-
-        String status = "";
-
-        if(StringUtils.isNotEmpty(googleChatNotification.getOverrideStatus())) {
-
-            status = getFormattedStatus(googleChatNotification.getOverrideStatus());
-
-        } else if(build != null && build.getResult() != null) {
-
-            status = getFormattedStatus(build.getResult().toString());
-
-        } else if(build != null && build.isBuilding()) {
-
-            status = getFormattedStatus("STARTED");
-
-        }
-
-        if(taskListener != null) {
-            taskListener.getLogger().println("formattedStatus: " + status);
-        }
-
-        StringBuilder outputString = new StringBuilder(build.getFullDisplayName());
-        outputString.append(" ").append("-").append(" ").append("*").append(status).append("*");
-        return outputString.toString();
-    }
-
-    public String getBuildURL(Run build, JenkinsLocationConfiguration globalConfig) {
-        return getDefaultJenkinsURL(build, globalConfig) + "build";
-    }
-
-    public String getConsoleURL(Run build, JenkinsLocationConfiguration globalConfig) {
-        return getDefaultJenkinsURL(build, globalConfig) + "console";
-    }
-
-    public String getConsoleFullURL(Run build, JenkinsLocationConfiguration globalConfig) {
-        return getDefaultJenkinsURL(build, globalConfig) + "consoleFull";
-    }
-
-    public String getDefaultJenkinsURL(Run build, JenkinsLocationConfiguration globalConfig) {
-        return globalConfig.getUrl() + build.getUrl();
-    }
-
-    public Boolean checkWhetherToSend(Run build) {
-        Boolean result = false;
+    public boolean checkWhetherToSend(Run build) {
+        boolean result = false;
 
         if(build != null && build.getResult() != null) {
             if(googleChatNotification.isNotifyAborted()
@@ -168,57 +125,26 @@ public class CommonUtil {
         return result;
     }
 
-    public void setTaskListener(TaskListener taskListener) {
-        this.taskListener = taskListener;
-    }
-
-    public String getFormattedStatus(String status) {
-
-        if(taskListener != null) {
-            taskListener.getLogger().println("Result: " + status);
+    public boolean checkPipelineFlag(Run build) {
+        if(!googleChatNotification.isNotifyAborted() &&
+                !googleChatNotification.isNotifyBackToNormal() &&
+                !googleChatNotification.isNotifyFailure() &&
+                !googleChatNotification.isNotifyNotBuilt() &&
+                !googleChatNotification.isNotifySuccess() &&
+                !googleChatNotification.isNotifyUnstable()) {
+            return true;
         }
-
-        String formattedStatus = "";
-
-        switch (status.toUpperCase()) {
-            case "SUCCESS":
-                formattedStatus = "PASSED";
-                break;
-            case "UNSTABLE":
-                formattedStatus = "UNSTABLE";
-                break;
-            case "FAILURE":
-                formattedStatus = "FAILED";
-                break;
-            case "NOT_BUILT":
-                formattedStatus = "NOT_BUILT";
-                break;
-            case "ABORTED":
-                formattedStatus = "ABORTED";
-                break;
-            default:
-                formattedStatus = status;
-                break;
-        }
-        return formattedStatus;
+        return checkWhetherToSend(build);
     }
 
     public String escapeSpecialCharacter(String input) {
 
         String output = input;
 
-        if(taskListener != null) {
-            taskListener.getLogger().println("escapeSpecialCharacter input ==: " + output);
-        }
-
         if(StringUtils.isNotEmpty(output)) {
             output = output.replace("{", "\\{");
             output = output.replace("}", "\\}");
             output = output.replace("'", "\\'");
-        }
-
-        if(taskListener != null) {
-            taskListener.getLogger().println("escapeSpecialCharacter output ==: " + output);
         }
 
         return output;
